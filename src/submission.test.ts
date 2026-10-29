@@ -1,6 +1,21 @@
-import { expect, test, vi } from 'vitest'
+import { expect, test } from 'vitest'
 import { initial } from './model'
-import { submitAnswers } from './submission'
-const endpoint = 'https://formsubmit.co/ajax/test@example.com'
-test('accepted response succeeds', async () => { const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: 'true' }) }); await submitAnswers(initial(), endpoint, fetcher); expect(fetcher).toHaveBeenCalledOnce() })
-test('unacknowledged response fails and can be retried', async () => { const fetcher = vi.fn().mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) }); await expect(submitAnswers(initial(), endpoint, fetcher)).rejects.toThrow(); await expect(submitAnswers(initial(), endpoint, fetcher)).resolves.toBeUndefined() })
+import { emailDraft } from './submission'
+
+test('email draft leaves recipient blank and includes answers', () => {
+  const data = initial()
+  data.answers.target = 'Receptionist'
+  const draft = emailDraft(data)
+  expect(draft.url).toMatch(/^mailto:\?subject=/)
+  expect(draft.url).toContain('Receptionist')
+  expect(draft.needsPaste).toBe(false)
+})
+
+test('long answers are never truncated', () => {
+  const data = initial()
+  data.answers.target = 'A'.repeat(10000)
+  const draft = emailDraft(data)
+  expect(draft.needsPaste).toBe(true)
+  expect(draft.url).not.toContain('AAAA')
+  expect(draft.body).toContain('A'.repeat(10000))
+})
